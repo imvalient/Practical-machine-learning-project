@@ -1,0 +1,178 @@
+---
+title: "Machine learning project"
+author: "Imanol Valiente Martín"
+date: "10/10/2016"
+output: html_document
+---
+
+## Data preparation
+
+Load the required packages.
+
+```{r}
+suppressMessages(require(data.table))
+suppressMessages(require(caret))
+suppressMessages(require(rpart))
+suppressMessages(require(randomForest))
+```
+
+Declare the Data sets URL constants.
+
+```{r}
+# Setting the URLs constants
+trainDataURL <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testDataURL <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+```
+
+Obtain the required testing and training data sets.
+
+```{r}
+# Obtaining the testing and training data
+# Found NA values:
+# * ""
+# * NA
+# * #DIV/0!
+trainingData <- read.csv(url(trainDataURL), na.strings = c("", "NA", "#DIV/0!"))
+testingData <- read.csv(url(testDataURL), na.strings = c("", "NA", "#DIV/0!"))
+```
+
+Apply cross validations, partition the data.
+
+```{r}
+# Partitioning the data, Cross validation
+# 65% of the data for training.
+# 35% of the data for testing.
+set.seed(1337)
+trainPartitionIndex <- createDataPartition(y = trainingData$classe, p = 0.65, list = FALSE)
+```
+
+Used 35% of the data for testing pourposes to avoid model overfitting. Splitting testing and training sets.
+
+```{r}
+trainData <- trainingData[trainPartitionIndex, ]
+testTrainData <-  trainingData[-trainPartitionIndex, ]
+```
+
+## Data transformation & clean up
+
+### Train data
+
+Removal of NA values from training data set, obtaining the percentage of NA values per column in the set.
+```{r}
+rowWithNa <- apply(trainData, 2, function(x){
+  sum(is.na(x)) / nrow(trainData)
+})
+```
+
+Proced to remove the columns with more than 90% of NA values
+
+```{r}
+# Remove columns with more than 90% of NA values
+trainDataNoNa <- trainData[!(rowWithNa > 0.9) ]
+```
+
+Removal of first seven columns from the data set, they mean nothing in terms of kind of exercise performed by the user.
+
+```{r}
+# Removing each row ID first column
+trainDataNoNa <- trainDataNoNa[, -(1:7)]
+```
+
+### Test train data
+
+Removal of NA values from training data set, obtaining the percentage of NA values per column in the set.
+```{r}
+# Removing NAs.
+ rowWithNa <- apply(testTrainData, 2, function(x){
+  sum(is.na(x)) / nrow(testTrainData)
+ })
+```
+
+Proced to remove the columns with more than 90% of NA values
+
+```{r}
+# Remove columns with more than 90% of NA values
+testTrainDataNoNa <- testTrainData[!(rowWithNa > 0.9)]
+```
+
+Removal of first seven columns from the data set, they mean nothing in terms of kind of exercise performed by the user.
+
+```{r}
+# Removing each row ID first column
+testTrainDataNoNa <- testTrainDataNoNa[, -(1:7)]
+```
+
+### Test data
+
+Removal of NA values from training data set, obtaining the percentage of NA values per column in the set.
+```{r}
+# Removing NAs.
+ rowWithNa <- apply(testingData, 2, function(x){
+  sum(is.na(x)) / nrow(testingData)
+ })
+```
+
+Proced to remove the columns with more than 90% of NA values
+
+```{r}
+# Remove columns with more than 90% of NA values
+testingDataNoNa <- testingData[!(rowWithNa > 0.9)]
+```
+
+Removal of first seven columns from the data set, they mean nothing in terms of kind of exercise performed by the user.
+
+```{r}
+# Removing each row ID first column
+testingDataNoNa <- testingDataNoNa[, -(1:7)]
+```
+ 
+    
+## Fitting a model.
+
+### Classification. Decision tree.
+```{r}
+decisionTreeModel <- rpart(classe ~., data=trainDataNoNa, method="class")
+```
+
+Predicting over training test set.
+
+```{r}
+predictionTrainTestTree <- predict(decisionTreeModel, testTrainDataNoNa, type = "class")
+confusionMatrix(predictionTrainTestTree, testTrainDataNoNa$classe)
+```
+
+The accuracy for Decision tree is 73%, with an out of sample error of 27%.
+
+Predicting over test set.
+
+```{r}
+predictionTestTree <- predict(decisionTreeModel, testingDataNoNa, type = "class")
+```
+
+### Random forest
+```{r}
+randomForestModel <- randomForest(classe ~., data = trainDataNoNa)
+```
+
+Predicting over training test set.
+
+```{r}
+predictionTrainTestForest <- predict(randomForestModel, testTrainDataNoNa)
+confusionMatrix(predictionTrainTestForest, testTrainDataNoNa$classe)
+```
+
+The accuracy for Random forest is 99%, with an out of sample error of 1%.
+
+Predicting over test set.
+
+```{r}
+predictionTestForest <- predict(randomForestModel, testingDataNoNa)
+```
+    
+## Summary
+
+In conclusion, between Decision tree and Random forest, for this data set the second algorithm performs ways better than the first one, so for the 20 test cases, we predicted what shows on the next data frame
+
+```{r}
+data.frame(testingData$user_name, predictionTestForest)
+```
